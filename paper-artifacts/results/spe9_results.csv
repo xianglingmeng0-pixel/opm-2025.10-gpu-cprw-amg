@@ -1,0 +1,7 @@
+case,method,mpi,threads,newton_iterations,linear_iterations,linear_solve_s,linear_setup_s,linear_apply_s,assembly_update_s,total_s
+SPE9,GPUILU0,1,12,264,1509,2.03,0.23,1.80,2.79,7.23
+SPE9,GPUDILU,1,12,266,1516,2.30,0.30,2.00,2.81,7.57
+SPE9,GPUCPR-AMG,1,12,243,118,3.51,2.00,1.51,2.64,8.97
+SPE9,GPUCPRW-AMG,1,12,242,116,3.55,2.06,1.49,2.58,8.49
+SPE9,CPUCPR-AMG,1,12,244,306,10.93,3.50,7.43,2.61,15.93
+SPE9,CPUCPRW-AMG,1,12,239,199,9.35,3.47,5.88,2.59,14.32

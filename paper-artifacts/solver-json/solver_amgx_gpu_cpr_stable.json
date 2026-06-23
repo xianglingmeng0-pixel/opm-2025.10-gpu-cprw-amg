@@ -1,0 +1,38 @@
+{
+  "maxiter": "50",
+  "tol": "0.005",
+  "verbosity": "0",
+  "solver": "bicgstab",
+  "preconditioner": {
+    "type": "cpr",
+    "weight_type": "trueimpes",
+    "pre_smooth": "3",
+    "post_smooth": "3",
+    "finesmoother": {
+      "type": "dilu"
+    },
+    "verbosity": "0",
+    "coarsesolver": {
+      "maxiter": "1",
+      "tol": "0.1",
+      "solver": "loopsolver",
+      "verbosity": "0",
+      "preconditioner": {
+        "type": "amgx",
+        "determinism_flag": "0",
+        "print_grid_stats": "0",
+        "print_solve_stats": "0",
+        "solver": "AMG",
+        "algorithm": "CLASSICAL",
+        "interpolator": "D2",
+        "selector": "PMIS",
+        "smoother": "BLOCK_JACOBI",
+        "presweeps": "3",
+        "postsweeps": "3",
+        "strength_threshold": "0.5",
+        "max_iters": "2",
+        "setup_frequency": "30"
+      }
+    }
+  }
+}

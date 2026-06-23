@@ -1,0 +1,10 @@
+{
+  "tol": "0.005",
+  "maxiter": "200",
+  "verbosity": "0",
+  "solver": "bicgstab",
+  "backend": "gpu",
+  "preconditioner": {
+    "type": "dilu"
+  }
+}

@@ -1,136 +1,172 @@
-![OPM logo](https://github.com/OPM/.github/blob/main/profile/OPM%20logo%20small%20cropped.png)
-# Open Porous Media Simulators
-[![Home Page](https://img.shields.io/badge/Home_Page-opm--project.org-8888FF)](https://opm-project.org/)
-[![License](https://img.shields.io/badge/License-GPL_V.3%2B-2ea44f)](#)
-[![Documentation](https://img.shields.io/badge/docs-manual-999999)](https://opm-project.org/?page_id=955)
-[![Main Article - 10.1016/j.camwa.2020.05.014](https://img.shields.io/badge/Main_Article-10.1016%2Fj.camwa.2020.05.014-FF9900)](https://doi.org/10.1016/j.camwa.2020.05.014)
-[![Zenodo](https://img.shields.io/badge/Zenodo_Src-10.5281%2Fzenodo.12637570-ff2222)](https://doi.org/10.5281/zenodo.12637570)
+# GPU CPRW-AMG for OPM Flow 2025.10
 
-> The `opm-simulators` repository contains the OPM Flow reservoir simulator which uses automatic differentiation and standard input-formats to simulate reservoirs of industrial complexity on real assets by commercial actors. It is cooperatively developed by multiple industry-partners and academic institutions under the GPL 3 license.
->
-> Flow is a fully implicit black-oil simulators which also supports CO2 storage, H2 storage, thermal simulations, solvents, as well as polymers. It works with the Eclipse formats, making it easy to integrate into existing workflows. The automatic differentiation is implemented in [opm-common](https://github.com/OPM/opm-common). The manual can be found here on the OPM [home page](https://opm-project.org/?page_id=955).
+This repository contains the artifact for the paper:
 
-## Supported Platforms
-- RHEL 8+
-- Ubuntu 22.04 LTS and 24.04 LTS
-- Debian
-- Mac OS X
-- WSL2
+**A GPU-Accelerated CPRW-AMG Preconditioner for Porous Media Reservoir Simulation**
 
-[Download binaries here](https://opm-project.org/?page_id=36)
+The code extends the GPU-ISTL solver path in OPM Flow 2025.10 with a GPU CPRW-AMG preconditioner. The implementation extends the existing GPU CPR-AMG pressure-only coarse system to a pressure--BHP coarse system and updates well-related coarse entries using sparse GPU kernels.
 
+## Main Contributions
 
-## Building from Source
-`opm-simulators` Depends on:
-- [opm-common](https://github.com/OPM/opm-common)
-- [opm-grid](https://github.com/OPM/opm-grid)
-- [Dune and all other dependencies are listed and tracked on the home page](https://opm-project.org/?page_id=239)
+The artifact includes:
 
-[Follow the build instructions on the home page](http://opm-project.org/?page_id=36).
+- a GPU pressure--BHP transfer policy for CPRW-AMG;
+- GPU sparse set/add kernels for well-related coarse entries;
+- integration of `type: cprw` into the GPU-ISTL preconditioner factory;
+- solver JSON files and scripts used for the paper experiments;
+- processed benchmark results for SPE9, SPE10, Norne, and Sleipner.
+
+The artifact branch intentionally excludes the experimental native GPU well-operator path. The validated paper experiments use:
+
+```bash
+--linear-solver-accelerator=gpu
+--matrix-add-well-contributions=true
 
 
-## In-Code Documentation
-In addition to providing the [manual](https://opm-project.org/?page_id=955) we also document the source code with Doxygen, using the `make doc` command.
 
 
-## Reporting Issues
-Issues can either be reported here on [GitHub repository](https://github.com/OPM/opm-simulators/issues), or using the [OPM mailing list](https://opm-project.org/?page_id=358)
 
-To help diagnose build errors, please provide a link to a build log together
-with the issue description.
-
-You can capture such a log from the build using the `script' utility, e.g.:
-
-    LOGFILE=$(date +%Y%m%d-%H%M-)build.log ;
-    cmake -E cmake_echo_color --cyan --bold "Log file: $LOGFILE" ;
-    script -q $LOGFILE -c 'cmake ../opm-core -DCMAKE_BUILD_TYPE=Debug' &&
-    script -q $LOGFILE -a -c 'ionice nice make -j 4 -l 3' ||
-    cat CMakeCache.txt CMakeFiles/CMake*.log >> $LOGFILE
-
-The resulting file can be uploaded to for instance gist.github.com.
-
-
-## Citing
-To cite OPM Flow we primarily use the paper `The Open Porous Media Flow reservoir simulator` published in the `Computers & Mathematics with Applications` (CAMWA) Journal. The correctly attribute credit to later contributors, we also want the Zenodo repository containing the source code to be cited. The BibTex for both can be found below.
-<details>
-<summary>BibTeX for CAMWA article</summary>
-
-```bibtex
-@article{OPMFLOW,
- title = {The {Open} {Porous} {Media} {Flow} reservoir simulator},
- journal = {Computers \& Mathematics with Applications},
- volume = {81},
- pages = {159-185},
- year = {2021},
- note = {Development and Application of Open-source Software for Problems with Numerical PDEs},
- issn = {0898-1221},
- doi = {https://doi.org/10.1016/j.camwa.2020.05.014},
- url = {https://www.sciencedirect.com/science/article/pii/S0898122120302182},
- author = {Atgeirr Flø Rasmussen and Tor Harald Sandve and Kai Bao and Andreas Lauser and Joakim Hove and Bård Skaflestad and Robert Klöfkorn and Markus Blatt and Alf Birger Rustad and Ove Sævareid and Knut-Andreas Lie and Andreas Thune}
-}
 ```
-</details>
 
-<details>
-<summary> BibTeX for source code (Zenodo) </summary>
+## Artifact Contents
 
-```bibtex
-@software{ahmed_2025_15573878,
-  author       = {Ahmed, Elyes and
-                  Alvestad, Jostein and
-                  BAO, KAI and
-                  Baxendale, David and
-                  Berge, Runar Lie and
-                  Berland, Håvard and
-                  Blatt, Markus and
-                  Bowden, Josh and
-                  Bueno, Jose Eduardo and
-                  Chang, Justin and
-                  Egberts, Paul and
-                  Fuchs, Franz Georg and
-                  Hægland, Håkon and
-                  Hove, Joakim and
-                  Kippe, Vegard and
-                  Klöfkorn, Robert and
-                  Krogstad, Stein and
-                  Kvarving, Arne Morten and
-                  Landa Marban, David and
-                  Logstein, Jan Inge and
-                  Lye, Kjetil Olsen and
-                  Machado, Cintia Goncalves and
-                  Marchiori, Giacomo and
-                  Meyer Andersen, Tobias and
-                  Mykkeltvedt, Trine and
-                  Nane, Razvan and
-                  Nebel, Lisa Julia and
-                  Nilsen, Halvor Møll and
-                  Qiu, Tong Dong and
-                  Qiu, Tuoling and
-                  Rasmussen, Atgeirr Flø and
-                  Ritorto, Antonella and
-                  Rustad, Alf Birger and
-                  Sandve, Tor Harald and
-                  Sævareid, Ove and
-                  Skaflestad, Bård and
-                  Skille, Torbjørn and
-                  Tveit, Svenn and
-                  Verveer, Peter and
-                  Tóth, Michal and
-                  Goodfield, Matthew and
-                  Sæternes, Erik Hide},
-  title        = {OPM Flow 2025.04},
-  month        = jun,
-  year         = 2025,
-  publisher    = {Zenodo},
-  version      = {2025.04},
-  doi          = {10.5281/zenodo.15573878},
-  url          = {https://doi.org/10.5281/zenodo.15573878},
-}
+```text
+paper-artifacts/
+  solver-json/      Solver configurations used in the experiments
+  scripts/          Reproduction scripts
+  results/          Processed result tables in CSV format
 ```
-</details>
 
-We try to keep track of all publications having used OPM Flow in their scientific papers [here](https://opm-project.org/?page_id=39). Reach out to the contact point mentioned on the page if you want your article there.
+## Reproducing Experiments
 
-## Contributing
+```bash
+cd /workspace/opm-simulators-gpu-cprw-paper
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
+export ROOT=/workspace/opm-simulators-gpu-cprw-paper
+export CUDA_VISIBLE_DEVICES=1
+
+paper-artifacts/scripts/run_spe9.sh
+paper-artifacts/scripts/run_norne.sh
+paper-artifacts/scripts/run_spe10.sh
+paper-artifacts/scripts/run_sleipner.sh
+```
+
+Large cases such as SPE10 and Sleipner can take many hours or days for the single-level GPUILU0/GPUDILU baselines.
+
+To summarize logs:
+
+```bash
+paper-artifacts/scripts/summarize_log.sh /workspace/log_spe9_gpu_cprw_1mpi12t.log
+```
+
+## Results
+
+Processed results are stored in:
+
+```text
+paper-artifacts/results/spe9_results.csv
+paper-artifacts/results/norne_results.csv
+paper-artifacts/results/spe10_results.csv
+paper-artifacts/results/sleipner_results.csv
+```
+
+The `linear_apply_s` column is computed as:
+
+```text
+linear_apply_s = linear_solve_s - linear_setup_s
+```
+
+The `assembly_update_s` column is computed as:
+
+```text
+assembly_update_s = assembly_time_s + props_update_time_s
+```
+
+## License
+
+This artifact is based on OPM Flow and follows the license terms of the OPM project.
+
+## Implementation Scope
+
+This artifact implements the stable GPU CPRW-AMG path used in the paper experiments. The implementation extends the existing GPU CPR-AMG infrastructure in OPM Flow 2025.10 from a pressure-only coarse system to a pressure--BHP coarse system.
+
+The validated paper configuration uses assembled well contributions:
+
+```bash
+--matrix-add-well-contributions=true
+```
+
+In this configuration, well contributions are included consistently in the matrix used by the Krylov operator, the GPU fine-level smoother, and the CPRW pressure--BHP coarse matrix construction. This is the stable path used for the SPE9, SPE10, Norne, and Sleipner results.
+
+The experimental native GPU well-operator path, corresponding to:
+
+```bash
+--matrix-add-well-contributions=false
+```
+
+is not included in this artifact branch. That path was used only for exploratory debugging and is left as future work because it requires separate equivalence validation of the GPU well matrix-vector product.
+
+## Modified Source Files
+
+The main source files changed or added by this artifact are:
+
+- `opm/simulators/linalg/gpuistl/GpuPressureBhpTransferPolicy.hpp`
+- `opm/simulators/linalg/gpuistl/GpuCprwWellContext.hpp`
+- `opm/simulators/linalg/StandardPreconditioners_gpu_serial.hpp`
+- `opm/simulators/linalg/gpuistl/ISTLSolverGPUISTL.hpp`
+- `opm/simulators/linalg/gpuistl/PreconditionerFactory_gpu_instantiate.cpp`
+- `opm/simulators/linalg/gpuistl/detail/cpr_amg_operations.hpp`
+- `opm/simulators/linalg/gpuistl/detail/cpr_amg_operations.cu`
+
+`GpuPressureBhpTransferPolicy.hpp` extends the GPU coarse transfer from pressure-only unknowns to pressure--BHP unknowns. `GpuCprwWellContext.hpp` provides well-related coarse-system data to the GPU transfer policy. The CUDA kernels in `cpr_amg_operations.cu` add mapped coarse-entry construction and sparse set/add operations for well-related coarse entries. The GPU preconditioner factory is extended so that JSON files with:
+
+```json
+"type": "cprw"
+```
+
+enter the GPU-ISTL CPRW-AMG path.
+
+## Solver Backends
+
+The paper comparisons use matched solver configurations as far as possible.
+
+GPU CPR-AMG and GPU CPRW-AMG use:
+
+- BiCGSTAB through the GPU-ISTL solver path;
+- GPU DILU as the fine-level smoother;
+- AMGX as the coarse AMG backend;
+- identical Krylov tolerances, outer smoothing parameters, and AMGX settings.
+
+CPU CPR-AMG and CPU CPRW-AMG use:
+
+- BiCGSTAB through the CPU ISTL solver path;
+- DUNE AMG as the coarse AMG backend;
+- matched CPR/CPRW parameters where applicable.
+
+GPUILU0 and GPUDILU are included as single-level GPU baselines.
+
+## Runtime Environment
+
+The experiments were run in an Ubuntu 22.04 based CUDA container with:
+
+- OPM Flow 2025.10
+- CUDA 12.4
+- NVIDIA driver 550.127.05
+- NVIDIA GeForce RTX 4090 GPU
+- Intel Xeon Gold 6230R CPU
+- AMGX coarse AMG backend for GPU CPR-AMG and GPU CPRW-AMG
+- DUNE AMG backend for CPU CPR-AMG and CPU CPRW-AMG
+
+The benchmark scripts in `paper-artifacts/scripts/` set the MPI and OpenMP configurations used in the paper tables. The processed results are stored in `paper-artifacts/results/`.
+
+## Artifact Contents
+
+This artifact intentionally includes only lightweight reproducibility files:
+
+- source-code changes;
+- solver JSON files;
+- run scripts;
+- processed result CSV files;
+- README and citation metadata.
+
+It does not include build directories, generated simulator output files, restart files, or large reservoir output files.

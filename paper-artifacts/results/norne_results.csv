@@ -1,0 +1,7 @@
+case,method,mpi,threads,newton_iterations,linear_iterations,linear_solve_s,linear_setup_s,linear_apply_s,assembly_update_s,total_s
+Norne,GPUILU0,1,12,1507,27566,157.75,3.13,154.62,61.77,284.09
+Norne,GPUDILU,1,12,1529,27660,144.74,1.77,142.97,75.57,298.03
+Norne,GPUCPR-AMG,1,12,1073,403,53.44,24.77,28.67,60.45,192.13
+Norne,GPUCPRW-AMG,1,12,1072,410,55.38,26.83,28.55,59.64,187.62
+Norne,CPUCPR-AMG,1,12,1264,2273,722.86,147.14,575.72,81.41,909.05
+Norne,CPUCPRW-AMG,1,12,1189,1417,394.24,96.95,297.29,65.23,543.88

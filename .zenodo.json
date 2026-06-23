@@ -1,0 +1,20 @@
+{
+  "title": "GPU CPRW-AMG for OPM Flow 2025.10",
+  "description": "Artifact for the paper A GPU-Accelerated CPRW-AMG Preconditioner for Porous Media Reservoir Simulation. The artifact contains the GPU CPRW-AMG source changes, solver JSON files, reproduction scripts, and processed benchmark results.",
+  "creators": [
+    {
+      "name": "Meng, Xiangling",
+      "affiliation": "University of Science and Technology Beijing"
+    }
+  ],
+  "keywords": [
+    "OPM Flow",
+    "GPU",
+    "CPRW-AMG",
+    "reservoir simulation",
+    "AMGX",
+    "GPU-ISTL"
+  ],
+  "license": "GPL-3.0-or-later",
+  "upload_type": "software"
+}
