@@ -55,6 +55,26 @@ void calculateCoarseEntries(const GpuSparseMatrixWrapper<T>& fineMatrix,
                             const GpuVector<T>& weights,
                             std::size_t pressureVarIndex);
 
+template <typename T, bool transpose>
+void calculateCoarseEntriesMapped(const GpuSparseMatrixWrapper<T>& fineMatrix,
+                                  GpuSparseMatrixWrapper<T>& coarseMatrix,
+                                  const GpuVector<T>& weights,
+                                  const GpuVector<int>& fineToCoarseIndex,
+                                  std::size_t pressureVarIndex);
+
+template <typename T>
+void addCoarseEntries(GpuSparseMatrixWrapper<T>& coarseMatrix,
+                      const GpuVector<T>& increment);
+
+template <typename T>
+void addSparseCoarseEntries(GpuSparseMatrixWrapper<T>& coarseMatrix,
+                            const GpuVector<int>& positions,
+                            const GpuVector<T>& increment);
+
+template <typename T>
+void setSparseCoarseEntries(GpuSparseMatrixWrapper<T>& coarseMatrix,
+                            const GpuVector<int>& positions,
+                            const GpuVector<T>& values);
 
 /**
  * @brief Restricts a fine level vector to a coarse level vector based on pressure index
@@ -70,6 +90,13 @@ void restrictVector(const GpuVector<T>& fine,
                     const GpuVector<T>& weights,
                     std::size_t pressureVarIndex);
 
+template <typename T, bool transpose>
+void restrictVector(const GpuVector<T>& fine,
+                    GpuVector<T>& coarse,
+                    const GpuVector<T>& weights,
+                    std::size_t pressureVarIndex,
+                    std::size_t numberOfFineBlocks);
+
 /**
  * @brief Prolongs a coarse level vector to a fine level vector based on pressure index
  * @param coarse The coarse level vector
@@ -83,6 +110,13 @@ void prolongateVector(const GpuVector<T>& coarse,
                       GpuVector<T>& fine,
                       const GpuVector<T>& weights,
                       std::size_t pressureVarIndex);
+
+template <typename T, bool transpose>
+void prolongateVector(const GpuVector<T>& coarse,
+                      GpuVector<T>& fine,
+                      const GpuVector<T>& weights,
+                      std::size_t pressureVarIndex,
+                      std::size_t numberOfFineBlocks);
 
 } // namespace Opm::gpuistl::detail
 

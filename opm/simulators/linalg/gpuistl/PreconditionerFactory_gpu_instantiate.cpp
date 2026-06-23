@@ -20,11 +20,20 @@
 #include "config.h"
 #include <dune/istl/operators.hh>
 #include <opm/simulators/linalg/PreconditionerFactory_impl.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuCprwWellContext.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuSparseMatrixWrapper.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuVector.hpp>
 #if HAVE_MPI
 #include <opm/simulators/linalg/gpuistl/GpuOwnerOverlapCopy.hpp>
 #endif
+
+namespace Opm::gpuistl::detail {
+std::shared_ptr<const GpuCprwWellProvider<double>>& activeDoubleCprwWellProvider()
+{
+    static std::shared_ptr<const GpuCprwWellProvider<double>> provider;
+    return provider;
+}
+} // namespace Opm::gpuistl::detail
 
 // NOTE: This is very rudimentary, and will be improved once we
 // incorporate MPI in the ISTLSolverGPUISTL class.

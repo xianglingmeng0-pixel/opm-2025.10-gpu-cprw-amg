@@ -121,6 +121,83 @@ namespace
         }
     }
 
+    template <typename T, bool transpose>
+    __global__ void calculateCoarseEntriesMappedKernel(const T* fineNonZeroValues,
+                                                       T* coarseNonZeroValues,
+                                                       const T* weights,
+                                                       const int* rowIndices,
+                                                       const int* colIndices,
+                                                       const int* fineToCoarseIndex,
+                                                       const int numberOfRows,
+                                                       const int blockSize,
+                                                       const int pressureVarIndex)
+    {
+        const auto row = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (row < numberOfRows) {
+            const int start = rowIndices[row];
+            const int end = rowIndices[row + 1];
+
+            for (int i = start; i < end; i++) {
+                const int col = colIndices[i];
+                const int blockOffset = i * blockSize * blockSize;
+                T matrixEl = 0.0;
+
+                if constexpr (transpose) {
+                    const T* bw = weights + col * blockSize;
+                    for (int j = 0; j < blockSize; ++j) {
+                        matrixEl += fineNonZeroValues[blockOffset + pressureVarIndex * blockSize + j] * bw[j];
+                    }
+                } else {
+                    const T* bw = weights + row * blockSize;
+                    for (int j = 0; j < blockSize; ++j) {
+                        matrixEl += fineNonZeroValues[blockOffset + j * blockSize + pressureVarIndex] * bw[j];
+                    }
+                }
+
+                coarseNonZeroValues[fineToCoarseIndex[i]] = matrixEl;
+            }
+        }
+    }
+
+    template <typename T>
+    __global__ void addCoarseEntriesKernel(T* coarseNonZeroValues,
+                                           const T* increment,
+                                           const int numberOfEntries)
+    {
+        const auto entry = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (entry < numberOfEntries) {
+            coarseNonZeroValues[entry] += increment[entry];
+        }
+    }
+
+    template <typename T>
+    __global__ void addSparseCoarseEntriesKernel(T* coarseNonZeroValues,
+                                                 const int* positions,
+                                                 const T* increment,
+                                                 const int numberOfEntries)
+    {
+        const auto entry = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (entry < numberOfEntries) {
+            atomicAdd(coarseNonZeroValues + positions[entry], increment[entry]);
+        }
+    }
+
+    template <typename T>
+    __global__ void setSparseCoarseEntriesKernel(T* coarseNonZeroValues,
+                                                 const int* positions,
+                                                 const T* values,
+                                                 const int numberOfEntries)
+    {
+        const auto entry = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (entry < numberOfEntries) {
+            coarseNonZeroValues[positions[entry]] = values[entry];
+        }
+    }
+
     // Kernel to restrict a fine vector to a coarse vector
     template <typename T, bool transpose>
     __global__ void restrictVectorKernel(const T* fine,
@@ -247,7 +324,92 @@ calculateCoarseEntries(const GpuSparseMatrixWrapper<T>& fineMatrix,
                                              fineMatrix.getColumnIndices().data(),
                                              fineMatrix.N(),
                                              fineMatrix.blockSize(),
+	                                             pressureVarIndex);
+}
+
+template <typename T, bool transpose>
+void
+calculateCoarseEntriesMapped(const GpuSparseMatrixWrapper<T>& fineMatrix,
+                             GpuSparseMatrixWrapper<T>& coarseMatrix,
+                             const GpuVector<T>& weights,
+                             const GpuVector<int>& fineToCoarseIndex,
+                             std::size_t pressureVarIndex)
+{
+    const int numberOfRows = fineMatrix.N();
+
+    int threadBlockSize = getCudaRecomendedThreadBlockSize(calculateCoarseEntriesMappedKernel<T, transpose>);
+    int nThreadBlocks = getNumberOfBlocks(numberOfRows, threadBlockSize);
+
+    calculateCoarseEntriesMappedKernel<T, transpose>
+        <<<nThreadBlocks, threadBlockSize>>>(fineMatrix.getNonZeroValues().data(),
+                                             coarseMatrix.getNonZeroValues().data(),
+                                             weights.data(),
+                                             fineMatrix.getRowIndices().data(),
+                                             fineMatrix.getColumnIndices().data(),
+                                             fineToCoarseIndex.data(),
+                                             fineMatrix.N(),
+                                             fineMatrix.blockSize(),
                                              pressureVarIndex);
+}
+
+template <typename T>
+void
+addCoarseEntries(GpuSparseMatrixWrapper<T>& coarseMatrix,
+                 const GpuVector<T>& increment)
+{
+    const int numberOfEntries = increment.dim();
+
+    int threadBlockSize = getCudaRecomendedThreadBlockSize(addCoarseEntriesKernel<T>);
+    int nThreadBlocks = getNumberOfBlocks(numberOfEntries, threadBlockSize);
+
+    addCoarseEntriesKernel<T>
+        <<<nThreadBlocks, threadBlockSize>>>(coarseMatrix.getNonZeroValues().data(),
+                                             increment.data(),
+	                                             numberOfEntries);
+}
+
+template <typename T>
+void
+addSparseCoarseEntries(GpuSparseMatrixWrapper<T>& coarseMatrix,
+                       const GpuVector<int>& positions,
+                       const GpuVector<T>& increment)
+{
+    const int numberOfEntries = increment.dim();
+
+    if (numberOfEntries == 0) {
+        return;
+    }
+
+    int threadBlockSize = getCudaRecomendedThreadBlockSize(addSparseCoarseEntriesKernel<T>);
+    int nThreadBlocks = getNumberOfBlocks(numberOfEntries, threadBlockSize);
+
+    addSparseCoarseEntriesKernel<T>
+        <<<nThreadBlocks, threadBlockSize>>>(coarseMatrix.getNonZeroValues().data(),
+                                             positions.data(),
+                                             increment.data(),
+                                             numberOfEntries);
+}
+
+template <typename T>
+void
+setSparseCoarseEntries(GpuSparseMatrixWrapper<T>& coarseMatrix,
+                       const GpuVector<int>& positions,
+                       const GpuVector<T>& values)
+{
+    const int numberOfEntries = values.dim();
+
+    if (numberOfEntries == 0) {
+        return;
+    }
+
+    int threadBlockSize = getCudaRecomendedThreadBlockSize(setSparseCoarseEntriesKernel<T>);
+    int nThreadBlocks = getNumberOfBlocks(numberOfEntries, threadBlockSize);
+
+    setSparseCoarseEntriesKernel<T>
+        <<<nThreadBlocks, threadBlockSize>>>(coarseMatrix.getNonZeroValues().data(),
+                                             positions.data(),
+                                             values.data(),
+                                             numberOfEntries);
 }
 
 template <typename T, bool transpose>
@@ -257,8 +419,21 @@ restrictVector(const GpuVector<T>& fine,
                const GpuVector<T>& weights,
                std::size_t pressureVarIndex)
 {
-    const int blockSize = fine.dim() / coarse.dim();
     const int numberOfBlocks = coarse.dim();
+
+    restrictVector<T, transpose>(fine, coarse, weights, pressureVarIndex, numberOfBlocks);
+}
+
+template <typename T, bool transpose>
+void
+restrictVector(const GpuVector<T>& fine,
+               GpuVector<T>& coarse,
+               const GpuVector<T>& weights,
+               std::size_t pressureVarIndex,
+               std::size_t numberOfFineBlocks)
+{
+    const int blockSize = fine.dim() / numberOfFineBlocks;
+    const int numberOfBlocks = numberOfFineBlocks;
 
     int threadBlockSize = getCudaRecomendedThreadBlockSize(restrictVectorKernel<T, transpose>);
     int nThreadBlocks = getNumberOfBlocks(numberOfBlocks, threadBlockSize);
@@ -274,8 +449,21 @@ prolongateVector(const GpuVector<T>& coarse,
                  const GpuVector<T>& weights,
                  std::size_t pressureVarIndex)
 {
-    const int blockSize = fine.dim() / coarse.dim();
     const int numberOfBlocks = coarse.dim();
+
+    prolongateVector<T, transpose>(coarse, fine, weights, pressureVarIndex, numberOfBlocks);
+}
+
+template <typename T, bool transpose>
+void
+prolongateVector(const GpuVector<T>& coarse,
+                 GpuVector<T>& fine,
+                 const GpuVector<T>& weights,
+                 std::size_t pressureVarIndex,
+                 std::size_t numberOfFineBlocks)
+{
+    const int blockSize = fine.dim() / numberOfFineBlocks;
+    const int numberOfBlocks = numberOfFineBlocks;
 
     int threadBlockSize = getCudaRecomendedThreadBlockSize(prolongateVectorKernel<T, transpose>);
     int nThreadBlocks = getNumberOfBlocks(numberOfBlocks, threadBlockSize);
@@ -293,14 +481,29 @@ prolongateVector(const GpuVector<T>& coarse,
                                                                     GpuSparseMatrixWrapper<ScalarType>& coarseMatrix,         \
                                                                     const GpuVector<ScalarType>& weights,              \
                                                                     std::size_t pressureVarIndex);                     \
+    template void calculateCoarseEntriesMapped<ScalarType, TransposeMode>(const GpuSparseMatrixWrapper<ScalarType>& fineMatrix, \
+                                                                          GpuSparseMatrixWrapper<ScalarType>& coarseMatrix,   \
+                                                                          const GpuVector<ScalarType>& weights,              \
+                                                                          const GpuVector<int>& fineToCoarseIndex,           \
+                                                                          std::size_t pressureVarIndex);                     \
     template void restrictVector<ScalarType, TransposeMode>(const GpuVector<ScalarType>& fine,                         \
                                                             GpuVector<ScalarType>& coarse,                             \
                                                             const GpuVector<ScalarType>& weights,                      \
                                                             std::size_t pressureVarIndex);                             \
+    template void restrictVector<ScalarType, TransposeMode>(const GpuVector<ScalarType>& fine,                         \
+                                                            GpuVector<ScalarType>& coarse,                             \
+                                                            const GpuVector<ScalarType>& weights,                      \
+                                                            std::size_t pressureVarIndex,                              \
+                                                            std::size_t numberOfFineBlocks);                           \
     template void prolongateVector<ScalarType, TransposeMode>(const GpuVector<ScalarType>& coarse,                     \
                                                               GpuVector<ScalarType>& fine,                             \
                                                               const GpuVector<ScalarType>& weights,                    \
-                                                              std::size_t pressureVarIndex);
+                                                              std::size_t pressureVarIndex);                           \
+    template void prolongateVector<ScalarType, TransposeMode>(const GpuVector<ScalarType>& coarse,                     \
+                                                              GpuVector<ScalarType>& fine,                             \
+                                                              const GpuVector<ScalarType>& weights,                    \
+                                                              std::size_t pressureVarIndex,                            \
+                                                              std::size_t numberOfFineBlocks);
 
 INSTANTIATE_CPR_AMG_FUNCTIONS(double, false)
 INSTANTIATE_CPR_AMG_FUNCTIONS(double, true)
@@ -309,4 +512,20 @@ INSTANTIATE_CPR_AMG_FUNCTIONS(float, true)
 
 #undef INSTANTIATE_CPR_AMG_FUNCTIONS
 
+template void addCoarseEntries<double>(GpuSparseMatrixWrapper<double>& coarseMatrix,
+                                       const GpuVector<double>& increment);
+template void addCoarseEntries<float>(GpuSparseMatrixWrapper<float>& coarseMatrix,
+                                      const GpuVector<float>& increment);
+template void addSparseCoarseEntries<double>(GpuSparseMatrixWrapper<double>& coarseMatrix,
+                                             const GpuVector<int>& positions,
+                                             const GpuVector<double>& increment);
+template void addSparseCoarseEntries<float>(GpuSparseMatrixWrapper<float>& coarseMatrix,
+                                            const GpuVector<int>& positions,
+                                            const GpuVector<float>& increment);
+template void setSparseCoarseEntries<double>(GpuSparseMatrixWrapper<double>& coarseMatrix,
+                                             const GpuVector<int>& positions,
+                                             const GpuVector<double>& values);
+template void setSparseCoarseEntries<float>(GpuSparseMatrixWrapper<float>& coarseMatrix,
+                                            const GpuVector<int>& positions,
+                                            const GpuVector<float>& values);
 } // namespace Opm::gpuistl::detail

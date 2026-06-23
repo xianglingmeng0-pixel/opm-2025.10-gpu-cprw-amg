@@ -18,12 +18,14 @@
 #define OPM_ISTLSOLVERGPUISTL_HEADER_INCLUDED
 
 #include <dune/istl/operators.hh>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <opm/grid/utility/ElementChunks.hpp>
 #include <opm/simulators/linalg/AbstractISTLSolver.hpp>
 #include <opm/simulators/linalg/getQuasiImpesWeights.hpp>
 #include <opm/simulators/linalg/ISTLSolver.hpp>
+#include <opm/simulators/linalg/WellOperators.hpp>
 
 #if USE_HIP
 #include <opm/simulators/linalg/gpuistl_hip/GpuSparseMatrixWrapper.hpp>
@@ -38,6 +40,7 @@
 #include <opm/simulators/linalg/ExtractParallelGridInformationToISTL.hpp>
 #include <opm/simulators/linalg/ParallelIstlInformation.hpp>
 #include <opm/simulators/linalg/findOverlapRowsAndColumns.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuCprwWellContext.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/FlexibleSolverWrapper.hpp>
 #include <opm/simulators/linalg/printlinearsolverparameter.hpp>
 
@@ -62,6 +65,7 @@ class ISTLSolverGPUISTL : public AbstractISTLSolver<TypeTag>
 public:
     using SparseMatrixAdapter = GetPropType<TypeTag, Properties::SparseMatrixAdapter>;
     using Vector = GetPropType<TypeTag, Properties::GlobalEqVector>;
+    using WellModel = GetPropType<TypeTag, Properties::WellModel>;
     using Simulator = GetPropType<TypeTag, Properties::Simulator>;
     using ElementMapper = GetPropType<TypeTag, Properties::ElementMapper>;
     using Matrix = typename SparseMatrixAdapter::IstlMatrix;
@@ -69,6 +73,7 @@ public:
     using GridView = GetPropType<TypeTag, Properties::GridView>;
     using ElementContext = GetPropType<TypeTag, Properties::ElementContext>;
     using ElementChunksType = Opm::ElementChunks<GridView, Dune::Partitions::All>;
+    using WellModelOperator = WellModelAsLinearOperator<WellModel, Vector, Vector>;
 
     using real_type = typename Vector::field_type;
 
@@ -124,8 +129,9 @@ public:
                                            Parameters::IsSet<Parameters::LinearSolverMaxIter>(),
                                            Parameters::IsSet<Parameters::LinearSolverReduction>());
         if (!Parameters::Get<Parameters::MatrixAddWellContributions>()) {
-            OPM_THROW(std::logic_error, "Well operators are currently not supported for the GPU backend. "
-            "Use --matrix-add-well-contributions=true to add well contributions to the matrix instead.");
+            OPM_THROW(std::logic_error,
+                      "Well operators are currently not supported for the GPU backend. "
+                      "Use --matrix-add-well-contributions=true to add well contributions to the matrix instead.");
         }
 
         Opm::detail::printLinearSolverParameters(m_parameters, m_propertyTree, simulator.gridView().comm());
@@ -423,6 +429,7 @@ private:
 
     void updateMatrix(const Matrix& M)
     {
+        configureCprwWellProvider();
         if (!m_matrix) {
             m_matrix.reset(new auto(GPUMatrix::fromMatrix(M)));
             m_pinnedMatrixMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
@@ -436,6 +443,32 @@ private:
             m_matrix->updateNonzeroValues(M, true);
             m_gpuSolver->update();
         }
+    }
+
+    bool usesCprwWithWellRows() const
+    {
+        auto preconditionerType = m_propertyTree.get(std::string("preconditioner.type"), std::string("cpr"));
+        std::transform(preconditionerType.begin(), preconditionerType.end(), preconditionerType.begin(), ::tolower);
+        return (preconditionerType == "cprw" || preconditionerType == "cprwt")
+            && m_propertyTree.get<bool>("preconditioner.add_wells", false);
+    }
+
+    void configureCprwWellProvider()
+    {
+        if (isParallel()) {
+            if (usesCprwWithWellRows()) {
+                OPM_THROW(std::logic_error,
+                          "GPU CPRW with BHP coarse rows is currently implemented for the serial GPU path.");
+            }
+            GpuCprwWellContext<real_type>::setProvider(nullptr);
+            return;
+        }
+        if (!m_cprwWellProvider) {
+            std::unique_ptr<LinearOperatorExtra<Vector, Vector>> wellOperator(
+                new WellModelOperator(m_simulator.problem().wellModel()));
+            m_cprwWellProvider = std::make_shared<GpuCprwCpuWellProvider<Vector>>(std::move(wellOperator));
+        }
+        GpuCprwWellContext<real_type>::setProvider(m_cprwWellProvider);
     }
 
     void updateRhs(const Vector& b)
@@ -464,6 +497,7 @@ private:
     std::unique_ptr<GPUMatrix> m_matrix;
 
     std::unique_ptr<SolverType> m_gpuSolver;
+    std::shared_ptr<const GpuCprwWellProvider<real_type>> m_cprwWellProvider;
 
     std::unique_ptr<GPUVector> m_rhs;
     std::unique_ptr<GPUVector> m_x;
