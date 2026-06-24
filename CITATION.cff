@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use this artifact, please cite the associated paper and this software release."
 title: "GPU CPRW-AMG for OPM Flow 2025.10"
-version: "0.1.0"
-date-released: "2026-06-23"
+version: "0.2.0"
+date-released: "2026-06-24"
 authors:
   - family-names: "Meng"
     given-names: "Xiangling"
     email: "d202210393@xs.ustb.edu.cn"
-repository-code: "https://github.com/YOUR_GITHUB_USERNAME/opm-2025.10-gpu-cprw-amg"
+repository-code: "https://github.com/xianglingmeng0-pixel/opm-2025.10-gpu-cprw-amg"
 keywords:
   - "OPM Flow"
   - "GPU"
